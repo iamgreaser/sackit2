@@ -61,19 +61,18 @@ uint32_t sackit_pitchslide_amiga_fine(uint32_t freq, int16_t amt)
 
 	*/
 
-	// TODO: actually cut note when too high
 	if(amt > 0)
 	{
 		// going up!
 		uint64_t cfreq = ((uint64_t)freq)*(uint64_t)amt;
-		if((cfreq>>32)!=0) return freq; // NEEDS CUT
+		if((cfreq>>32)!=0) return 0;
 
 		uint64_t sfreq = AMICLK;
-		if(sfreq <= cfreq) return freq; // NEEDS CUT
+		if(sfreq <= cfreq) return 0;
 		sfreq -= cfreq;
 
 		uint64_t bfreq = ((uint64_t)freq)*(uint64_t)AMICLK;
-		if(sfreq <= (bfreq>>32)) return freq; // NEEDS CUT
+		if(sfreq <= (bfreq>>32)) return 0;
 		bfreq /= sfreq;
 
 		return bfreq;
@@ -94,7 +93,7 @@ uint32_t sackit_pitchslide_amiga_fine(uint32_t freq, int16_t amt)
 		uint64_t xfreq = ((uint64_t)AMICLK) * freq;
 		xfreq >>= ctr;
 
-		if(xfreq <= (cfreq>>32)) return freq; // NEEDS CUT
+		if(xfreq <= (cfreq>>32)) return 0;
 		xfreq /= cfreq;
 		return xfreq;
 	}
@@ -195,12 +194,12 @@ void sackit_effect_portaslide(sackit_playback_t *sackit, sackit_pchannel_t *pchn
 	{
 		sackit_effect_pitchslide(sackit, pchn, amt);
 		// TODO: confirm if > or >=
-		if((uint32_t)pchn->achn->freq >= pchn->tfreq)
+		if(pchn->freq == 0 || (uint32_t)pchn->achn->freq >= pchn->tfreq)
 			pchn->nfreq = pchn->freq = pchn->tfreq;
 	} else {
 		sackit_effect_pitchslide(sackit, pchn, -amt);
 		// TODO: confirm if < or <=
-		if((uint32_t)pchn->achn->freq <= pchn->tfreq)
+		if(pchn->freq == 0 || (uint32_t)pchn->achn->freq <= pchn->tfreq)
 			pchn->nfreq = pchn->freq = pchn->tfreq;
 	}
 	

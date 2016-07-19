@@ -245,7 +245,8 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 				int32_t v;
 
 				if(zflg & IT_SMP_16BIT) {
-					int32_t vdelta = (v1-v0)>>1;
+					int32_t vdelta = v1-v0;
+					vdelta >>= 1;
 					vdelta *= zsuboffs;
 					vdelta >>= 15;
 					v = v0 + vdelta;
