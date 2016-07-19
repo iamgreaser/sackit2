@@ -1,5 +1,4 @@
-#define AMICLK (938308796416LL)
-#define AMIMUL (65536LL)
+#define AMICLK (1712LL*8363LL)
 
 // note, these aren't the IT limits (smps is 99 afaik)
 // but they should be fine for now --GM

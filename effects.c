@@ -51,11 +51,59 @@ uint32_t sackit_pitchslide_amiga_fine(uint32_t freq, int16_t amt)
 	if(amt == 0)
 		return freq;
 	
-	uint32_t r = AMICLK/(AMICLK/((int64_t)freq) - ((int64_t)amt)*AMIMUL);
-	
-	//printf("ami %i\n", r);
-	
-	return r;
+	// TODO: actually cut note when too high
+	if(amt > 0)
+	{
+		// going up!
+		uint64_t cfreq = freq;
+		cfreq *= (uint64_t)amt;
+		if((cfreq>>32)!=0) return freq; // NEEDS CUT
+
+		uint64_t sfreq = AMICLK;
+		uint64_t ac2 = AMICLK;
+		if(sfreq <= cfreq) return freq; // NEEDS CUT
+		sfreq -= cfreq;
+
+		uint64_t bfreq = freq;
+		bfreq *= ac2;
+		if(sfreq <= (bfreq>>32)) return freq; // NEEDS CUT
+		bfreq /= sfreq;
+
+		return bfreq;
+
+		//return AMICLK/(AMICLK/((int64_t)freq) - ((int64_t)amt));
+
+	} else {
+		// going down!
+		// IT behaves rather oddly here
+
+		uint64_t cfreq = freq;
+		cfreq *= -amt;
+		cfreq += AMICLK;
+
+		uint16_t ctr = 0;
+
+		while((cfreq>>32) != 0)
+		{
+			ctr++;
+			cfreq >>= 1;
+		}
+
+		uint64_t xfreq = AMICLK;
+		xfreq *= freq;
+
+		while(ctr != 0)
+		{
+			cfreq >>= 1;
+			ctr--;
+		}
+
+		if(xfreq <= (cfreq>>32)) return freq; // NEEDS CUT
+		xfreq /= cfreq;
+		return xfreq;
+
+		//return AMICLK/(AMICLK/((int64_t)freq) - ((int64_t)amt));
+	}
 }
 
 void sackit_effect_volslide(sackit_playback_t *sackit, sackit_pchannel_t *pchn, int8_t amt)
