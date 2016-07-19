@@ -13,13 +13,29 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 	int16_t *buf = &(sackit->buf[offs]);
 	int32_t *mixbuf = (int32_t *)&(sackit->mixbuf[offs]);
 
-	/* 2.11:
+	/*
+	2.11:
 	000010CD  2EA10F04          mov ax,[cs:0x40f] // mixing frequency
-	000010D1  BBF401            mov bx,0x1f4
+	000010D1  BBF401            mov bx,0x1f4 // 500
 	000010D4  33D2              xor dx,dx
-	000010D6  F7F3              div bx
-	000010D8  40                inc ax
+	000010D6  F7F3              div bx // f/500
+	000010D8  40                inc ax // (f/500)+1
 	000010D9  2EA35D0C          mov [cs:0xc5d],ax // ramp length
+	000010DD  C1E003            shl ax,byte 0x3
+	000010E0  2EA35F0C          mov [cs:0xc5f],ax
+
+	2.12:
+	0000199E  2EA10F0C          mov ax,[cs:0xc0f]
+	000019A2  BB9001            mov bx,0x190 // 400
+	000019A5  33D2              xor dx,dx
+	000019A7  F7F3              div bx // f/400
+	000019A9  40                inc ax // (f/400)+1
+	000019AA  2EA36014          mov [cs:0x1460],ax
+	000019AE  C1E003            shl ax,byte 0x3
+	000019B1  2EA36414          mov [cs:0x1464],ax
+
+	Sometimes I hate being right,
+	but it's times like these where I love being right.
 	*/
 #if MIXER_VER <= 211
 	int32_t ramplen = tfreq/500+1;
@@ -203,12 +219,9 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			vol >>= 9;
 #endif
 
-			//printf("%04X\n", vol);
-			//vol += 0x0080;
-			//vol &= 0x7F00;
-
 			if(achn->lramp_len == 0 && vol != achn->lramp) {
-				int32_t rampspd = vol-achn->lramp;
+				int32_t rampspd = vol - achn->lramp;
+				achn->lramp_spd = 0;
 
 				/* 2.11:
 				00000DBA  8B440E            mov ax,[si+0xe] // new vol
@@ -225,8 +238,21 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 				} else {
 					rampspd /= ramplen;
 				}
-				achn->lramp_len = ramplen;
-				achn->lramp_spd = rampspd;
+
+				// Skip ramping if 0
+				/* 2.11:
+				00000D0D  2EF73E5D0C        idiv word [cs:0xc5d]
+				00000D12  2EA3AC0C          mov [cs:0xcac],ax
+				00000D16  23C0              and ax,ax
+				00000D18  7507              jnz 0xd21
+				00000D1A  8B440C            mov ax,[si+0xc]
+				00000D1D  2EA3940C          mov [cs:0xc94],ax
+				*/
+				if(rampspd != 0) {
+					achn->lramp_len = ramplen;
+					achn->lramp_spd = rampspd;
+				}
+				//printf("%04X -> %04X : %d\n", achn->lramp, vol, achn->lramp_spd);
 			}
 
 			int32_t rampmul = achn->lramp;

@@ -161,10 +161,13 @@ int main(int argc, char *argv[])
 					if(yb != yr)
 					{
 						first_mismatch = mismatch_offs;
-						printf("MISMATCH @ sample %d (%d) (%.6f sec)\n",
+						printf("MISMATCH @ sample %d row %d (%d) (%.6f sec) - o=%d != %d\n",
 							first_mismatch,
+							sackit->current_row,
 							x,
-							first_mismatch/44100.0);
+							first_mismatch/44100.0,
+							yr,
+							yb);
 						break;
 					}
 					mismatch_offs++;
