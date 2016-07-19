@@ -34,24 +34,24 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 #ifdef MIXER_STEREO
 	if(sackit->anticlick[0] != 0 || sackit->anticlick[1] != 0)
 	{
-		int32_t rampmul0 = sackit->anticlick[0];
-		int32_t rampmul1 = sackit->anticlick[1];
+		int32_t rampmul0 = sackit->anticlick[0]>>16;
+		int32_t rampmul1 = sackit->anticlick[1]>>16;
 		sackit->anticlick[0] = 0;
 		sackit->anticlick[1] = 0;
 #else
 	if(sackit->anticlick[0] != 0)
 	{
-		int32_t rampmul = sackit->anticlick[0];
+		int32_t rampmul = sackit->anticlick[0]>>16;
 		sackit->anticlick[0] = 0;
 #endif
 		
 		for(j = 0; j < ramplen; j++)
 		{
 #ifdef MIXER_STEREO
-			mixbuf[j*2] += (((int32_t)rampmul0)*(int32_t)(ramplen-j-1))/ramplen;
-			mixbuf[j*2+1] += (((int32_t)rampmul1)*(int32_t)(ramplen-j-1))/ramplen;
+			mixbuf[j*2] -= ((((int32_t)rampmul0)*(int32_t)(ramplen-j-1))/ramplen)<<16;
+			mixbuf[j*2+1] -= ((((int32_t)rampmul1)*(int32_t)(ramplen-j-1))/ramplen)<<16;
 #else
-			mixbuf[j] += (((int32_t)rampmul)*(int32_t)(ramplen-j-1))/ramplen;
+			mixbuf[j] -= ((((int32_t)rampmul)*(int32_t)(ramplen-j-1))/ramplen)<<16;
 #endif
 		}
 	}
@@ -293,13 +293,11 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 				
 				if(ramprem > 0)
 				{
-					//v = (v*rampmul+0x8000)>>16;
 					v = v * rampmul;
 					rampmul += rampspd;
 					ramprem--;
 				} else {
 					v = v * vol;
-					//v = ((v*vol+0x8000)>>16);
 				}
 				
 				// mix

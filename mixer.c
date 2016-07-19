@@ -48,12 +48,12 @@
 #define MIXER_VER 212
 #define MIXER_ANTICLICK
 #define MIXER_INTERP_LINEAR
-#include "mixer_float.h"
+#include "mixer_int.h"
 #undef MIXER_NAME
 
 #define MIXER_NAME sackit_playback_mixstuff_it212ls
 #define MIXER_STEREO
-#include "mixer_float.h"
+#include "mixer_int.h"
 #undef MIXER_STEREO
 #undef MIXER_NAME
 #undef MIXER_ANTICLICK

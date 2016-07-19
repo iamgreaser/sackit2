@@ -61,8 +61,9 @@ If your test uses IT214-compressed samples (this pertains to testing pre-2.14 ve
 - resave it as "IT2xx" (as opposed to "IT214")
 
 AUTHORS:
-  2012-2013 Ben "GreaseMonkey" Russell.
+  2012-2016 Ben "GreaseMonkey" Russell.
+  Uses Jeffrey Lim's ImpulseTracker as a reference.
 
 LICENCE:
-  Public domain. I'm sick of people using libmikmod/libmodplug. THEY BOTH SUCK.
+  See LICENCE.txt - it's 3cBSD-styled as per IT itself.
 
