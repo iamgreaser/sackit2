@@ -153,6 +153,7 @@ int main(int argc, char *argv[])
 			// perform a mismatch check
 			if(first_mismatch == -1)
 			{
+				int old_mmoffs = mismatch_offs;
 				for(x = 0; x < BUFLEN; x++)
 				{
 					int yb = sackit->buf[x];
@@ -168,6 +169,7 @@ int main(int argc, char *argv[])
 					}
 					mismatch_offs++;
 				}
+				mismatch_offs = old_mmoffs + BUFLEN;
 			}
 			first_mismatch = -1;
 			// VISUALISE

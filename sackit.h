@@ -209,6 +209,8 @@ struct sackit_achannel
 	uint8_t pan;
 	uint16_t fv;
 	int32_t lramp;
+	int32_t lramp_len;
+	int32_t lramp_spd;
 	float lramp_f;
 	int16_t fadeout;
 
