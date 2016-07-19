@@ -156,6 +156,10 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			// 4) FV = Vol * SV * IV * CV * GV * VEV * NFC / 2^41
 			if(sackit->module->header.flags & IT_MOD_INSTR)
 			{
+				int16_t svol = achn->sv;
+				svol *= achn->iv;
+				svol >>= 6;
+
 				int32_t bvol = (int32_t)achn->vol;
 				bvol *= achn->cv;
 				bvol *= achn->fadeout;
@@ -163,24 +167,17 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 
 				// if ins idx >= 128, the calculation breaks here
 				// this is because DL=sv, DH=1, and we're doing DX:AX*sv
-				bvol *= achn->sv;
+				bvol *= svol;
 				bvol >>= 7;
 				bvol *= achn->evol.y;
 				bvol >>= 14;
 				bvol *= gvol;
 				bvol >>= 7;
 
-
-				// this is a guess
-				bvol *= mvol;
-				bvol >>= 6;
-
 				/*
-				bvol = (bvol*(int64_t)achn->evol.y);
+				TODO: find where this goes
+				(I think it multiplies sv and iv together for the SVl slot)
 				bvol = (bvol*(int64_t)achn->iv);
-				bvol = (bvol*(int64_t)achn->fadeout);
-				bvol = (bvol*(int64_t)mvol);
-				vol = (bvol)>>(1+14+6+6+6+6+7+10+7-15);
 				*/
 
 				vol = bvol;
@@ -188,22 +185,30 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			} else {
 				int32_t bvol = (int32_t)achn->vol;
 				bvol *= achn->cv;
-				bvol *= achn->sv;
+				bvol *= (achn->sv<<1);
 				bvol >>= 4;
 				bvol *= gvol;
 				bvol >>= 7;
 
 
-				// this is a guess
-				bvol *= mvol;
-				bvol >>= 6;
-
 				vol = bvol;
 			}
+
+			// this *appears* to be what happens...
+			// although the shifts are 2 more in the real thing
+			vol *= mvol;
+#ifdef MIXER_STEREO
+			vol >>= 6;
+#else
+			vol >>= 7;
+#endif
+			// ... so we'll compensate here for now.
+			vol &= ~3;
+
 			//printf("%04X\n", vol);
 			//vol += 0x0080;
 			//vol &= 0x7F00;
-			
+
 			achn->lramp = vol;
 			
 			int32_t rampmul = zlramp;
@@ -265,27 +270,44 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 						? zdata[zlpbeg]
 						: 0)
 					: zdata[(zoffs+1)]);
-				int32_t v  = ((v0*((65535-zsuboffs)))>>16)
-					+ ((v1*(zsuboffs))>>16);
+				int32_t v;
+
+				if(zflg & IT_SMP_16BIT) {
+					int32_t vdelta = (v1-v0)>>1;
+					vdelta *= zsuboffs;
+					vdelta >>= 15;
+					v = v0 + vdelta;
+
+				} else {
+					v0 >>= 8;
+					v1 >>= 8;
+					int32_t vdelta = (v1-v0);
+					vdelta *= zsuboffs;
+					vdelta >>= 8;
+					v0 <<= 8;
+					v = v0 + vdelta;
+				}
 #else
 				int32_t v = zdata[zoffs];
 #endif
 				
 				if(ramprem > 0)
 				{
-					v = (v*rampmul+0x8000)>>16;
+					//v = (v*rampmul+0x8000)>>16;
+					v = v * rampmul;
 					rampmul += rampspd;
 					ramprem--;
 				} else {
-					v = ((v*vol+0x8000)>>16);
+					v = v * vol;
+					//v = ((v*vol+0x8000)>>16);
 				}
 				
 				// mix
 #ifdef MIXER_STEREO
-				mixbuf[j*2] += v*vl>>8;
-				mixbuf[j*2+1] += v*vr>>8;
+				mixbuf[j*2] -= v*vl>>8;
+				mixbuf[j*2+1] -= v*vr>>8;
 #else
-				mixbuf[j] += v;
+				mixbuf[j] -= v;
 #endif
 #ifdef MIXER_ANTICLICK
 #ifdef MIXER_STEREO
@@ -351,7 +373,10 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 	for(j = 0; j < len; j++)
 #endif
 	{
-		int32_t bv = -mixbuf[j];
+		int32_t bv = mixbuf[j];
+		bv >>= 15;
+		bv += 1;
+		bv >>= 1;
 		if(bv < -32768) bv = -32768;
 		else if(bv > 32767) bv = 32767;
 		

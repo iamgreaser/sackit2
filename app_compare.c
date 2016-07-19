@@ -188,9 +188,9 @@ int main(int argc, char *argv[])
 			SDL_Flip(screen);
 			
 			int16_t *nvbuf = (int16_t *)sound_buf;
-			SDL_LockAudio();
+			//SDL_LockAudio();
 			memcpy(nvbuf, sackit->buf, BUFLEN*2);
-			SDL_UnlockAudio();
+			//SDL_UnlockAudio();
 			sound_ready = 0;
 		}
 		
