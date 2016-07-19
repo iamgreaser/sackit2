@@ -153,45 +153,52 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 				zfreq = -zfreq;
 			
 			int32_t vol = 0x8000;
-			/*vol = ((int32_t)achn->vol) // 6
-				*((int32_t)achn->sv) // 6
-				*((int32_t)achn->cv) // 6
-				*gvol // 7
-			;
-			//vol += (1<<9);
-			vol >>= 10;
-			vol = (vol*mvol)>>7; // 7*/
-			// TODO: sort the order / rounding out
 			// 4) FV = Vol * SV * IV * CV * GV * VEV * NFC / 2^41
-			/*vol = (vol*((int32_t)achn->vol))>>6;
-			vol = (vol*((int32_t)achn->sv))>>6;
-			vol = (vol*((int32_t)achn->iv))>>7;
-			vol = (vol*((int32_t)achn->cv))>>6;
-			vol = (vol*gvol)>>7;
-			vol = (vol*((int32_t)achn->evol.y))>>6;
-			vol = (vol*((int32_t)achn->fadeout))>>10;
-			vol = (vol*mvol)>>7;*/
+			if(sackit->module->header.flags & IT_MOD_INSTR)
 			{
-				/*int64_t bvol = 0x8000;
-				bvol = (bvol*(int64_t)achn->evol.y)>>14;
-				bvol = (bvol*(int64_t)achn->vol)>>6;
-				bvol = (bvol*(int64_t)achn->sv)>>6;
-				bvol = (bvol*(int64_t)achn->iv)>>6;
-				bvol = (bvol*(int64_t)achn->cv)>>6;
-				bvol = (bvol*(int64_t)gvol)>>7;
-				bvol = (bvol*(int64_t)achn->fadeout)>>10;
-				bvol = (bvol*(int64_t)mvol)>>7;
-				vol = (bvol)>>1;*/
-				int64_t bvol = 1;
+				int32_t bvol = (int32_t)achn->vol;
+				bvol *= achn->cv;
+				bvol *= achn->fadeout;
+				bvol >>= 7;
+
+				// if ins idx >= 128, the calculation breaks here
+				// this is because DL=sv, DH=1, and we're doing DX:AX*sv
+				bvol *= achn->sv;
+				bvol >>= 7;
+				bvol *= achn->evol.y;
+				bvol >>= 14;
+				bvol *= gvol;
+				bvol >>= 7;
+
+
+				// this is a guess
+				bvol *= mvol;
+				bvol >>= 6;
+
+				/*
 				bvol = (bvol*(int64_t)achn->evol.y);
-				bvol = (bvol*(int64_t)achn->vol);
-				bvol = (bvol*(int64_t)achn->sv);
 				bvol = (bvol*(int64_t)achn->iv);
-				bvol = (bvol*(int64_t)achn->cv);
-				bvol = (bvol*(int64_t)gvol);
 				bvol = (bvol*(int64_t)achn->fadeout);
 				bvol = (bvol*(int64_t)mvol);
 				vol = (bvol)>>(1+14+6+6+6+6+7+10+7-15);
+				*/
+
+				vol = bvol;
+
+			} else {
+				int32_t bvol = (int32_t)achn->vol;
+				bvol *= achn->cv;
+				bvol *= achn->sv;
+				bvol >>= 4;
+				bvol *= gvol;
+				bvol >>= 7;
+
+
+				// this is a guess
+				bvol *= mvol;
+				bvol >>= 6;
+
+				vol = bvol;
 			}
 			//printf("%04X\n", vol);
 			//vol += 0x0080;

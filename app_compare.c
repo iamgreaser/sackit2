@@ -35,11 +35,12 @@ void test_sdl_callback(void *userdata, Uint8 *stream, int len)
 	
 	while(offs < len)
 	{
+		int bufrem = len-offs;
 		if(sound_queue_pos < BUFLEN)
 		{
 			int xlen = BUFLEN-sound_queue_pos;
-			if(xlen > len-offs)
-				xlen = len;
+			if(xlen > bufrem)
+				xlen = bufrem;
 			
 			memcpy(&stream[offs*2], &sound_queue[sound_queue_pos], xlen*2);
 			sound_queue_pos += xlen;
@@ -107,7 +108,8 @@ int main(int argc, char *argv[])
 		fclose(fp);
 	}
 	
-	sackit_playback_t *sackit = sackit_playback_new(module, BUFLEN, 256, MIXER_IT214FC);
+	//sackit_playback_t *sackit = sackit_playback_new(module, BUFLEN, 256, MIXER_IT214FC);
+	sackit_playback_t *sackit = sackit_playback_new(module, BUFLEN, 256, MIXER_IT211L);
 	
 	SDL_AudioSpec aspec;
 	aspec.freq = 44100;
@@ -186,7 +188,9 @@ int main(int argc, char *argv[])
 			SDL_Flip(screen);
 			
 			int16_t *nvbuf = (int16_t *)sound_buf;
+			SDL_LockAudio();
 			memcpy(nvbuf, sackit->buf, BUFLEN*2);
+			SDL_UnlockAudio();
 			sound_ready = 0;
 		}
 		

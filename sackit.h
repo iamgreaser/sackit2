@@ -170,7 +170,7 @@ typedef struct sackit_envelope
 {
 	int8_t idx;
 	int16_t x;
-	int32_t y;
+	int32_t y; // rounding: 0x4000 = 64 (it appears I was right here)
 	int8_t def; // "default".
 	int8_t lpbeg,lpend;
 	int8_t susbeg,susend;

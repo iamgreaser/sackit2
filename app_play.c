@@ -45,11 +45,12 @@ void test_sdl_callback(void *userdata, Uint8 *stream, int len)
 	
 	while(offs < len)
 	{
+		int bufrem = len-offs;
 		if(sound_queue_pos < BUFSIZE)
 		{
 			int xlen = BUFSIZE-sound_queue_pos;
-			if(xlen > len-offs)
-				xlen = len;
+			if(xlen > bufrem)
+				xlen = bufrem;
 			
 			memcpy(&stream[offs*4], &sound_queue[sound_queue_pos*2], xlen*4);
 			sound_queue_pos += xlen;
