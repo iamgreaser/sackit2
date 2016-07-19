@@ -1,3 +1,6 @@
+sackit2 is a fork of sackit where I blatantly just look at the IT source code.
+Because of this, this version is NOT public domain.
+
 sackit is an .it format player that strives for sample accuracy.
 Currently it's not quite there for any tests,
   but does come pretty close ignoring volume ramping.
