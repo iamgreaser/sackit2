@@ -13,7 +13,14 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 	int16_t *buf = &(sackit->buf[offs]);
 	int32_t *mixbuf = (int32_t *)&(sackit->mixbuf[offs]);
 	
-	// just a guess :)
+	/* 2.11:
+	000010CD  2EA10F04          mov ax,[cs:0x40f] // mixing frequency
+	000010D1  BBF401            mov bx,0x1f4
+	000010D4  33D2              xor dx,dx
+	000010D6  F7F3              div bx
+	000010D8  40                inc ax
+	000010D9  2EA35D0C          mov [cs:0xc5d],ax // ramp length
+	*/
 #if MIXER_VER <= 211
 	int32_t ramplen = tfreq/500+1;
 #else
@@ -174,12 +181,6 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 				bvol *= gvol;
 				bvol >>= 7;
 
-				/*
-				TODO: find where this goes
-				(I think it multiplies sv and iv together for the SVl slot)
-				bvol = (bvol*(int64_t)achn->iv);
-				*/
-
 				vol = bvol;
 
 			} else {
@@ -195,15 +196,12 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			}
 
 			// this *appears* to be what happens...
-			// although the shifts are 2 more in the real thing
 			vol *= mvol;
 #ifdef MIXER_STEREO
-			vol >>= 6;
+			vol >>= 8;
 #else
-			vol >>= 7;
+			vol >>= 9;
 #endif
-			// ... so we'll compensate here for now.
-			vol &= ~3;
 
 			//printf("%04X\n", vol);
 			//vol += 0x0080;
@@ -213,21 +211,24 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			
 			int32_t rampmul = zlramp;
 			int32_t ramprem = ramplen;
-			int32_t rampdelta = (vol-zlramp);
-			int negdepth = (rampdelta < 0);
+			int32_t rampdelta = vol-zlramp;
 			int32_t rampdelta_i = rampdelta;
-			if(negdepth)
-				rampdelta = -rampdelta;
-			int32_t rampspd = (rampdelta+0x0080)&~0x00FF;
-			
-			rampspd = rampspd / (ramplen+1);
-			
-			rampspd &= ~3;
-			
-			if(negdepth)
-			{
+			int32_t rampspd = rampdelta;
+
+			/* 2.11:
+			00000DBA  8B440E            mov ax,[si+0xe] // new vol
+			00000DBD  2EA3A40D          mov [cs:0xda4],ax // current ramp vol
+			00000DC1  2B441E            sub ax,[si+0x1e] // old vol
+			00000DC4  99                cwd
+			00000DC5  2EF73E5D0C        idiv word [cs:0xc5d] // ramp length
+			00000DCA  2EA3860D          mov [cs:0xd86],ax // ramp speed
+			*/
+			if(rampspd < 0) {
 				rampspd = -rampspd;
-				//rampspd -= 4;
+				rampspd /= ramplen;
+				rampspd = -rampspd;
+			} else {
+				rampspd /= ramplen;
 			}
 			
 			/*
@@ -372,7 +373,7 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 #endif
 	{
 		int32_t bv = mixbuf[j];
-		bv >>= 15;
+		bv >>= 13;
 		bv += 1;
 		bv >>= 1;
 		if(bv < -32768) bv = -32768;

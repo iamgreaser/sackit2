@@ -56,6 +56,9 @@ void test_sdl_callback(void *userdata, Uint8 *stream, int len)
 int main(int argc, char *argv[])
 {
 	int x,y,i;
+
+	int first_mismatch = -1;
+	int mismatch_offs = 0;
 	
 	int argoffs = 1;
 	int pausemode = 0;
@@ -147,6 +150,26 @@ int main(int argc, char *argv[])
 				play_a_sound = 0;
 			sackit_playback_update(sackit);
 			
+			// perform a mismatch check
+			if(first_mismatch == -1)
+			{
+				for(x = 0; x < BUFLEN; x++)
+				{
+					int yb = sackit->buf[x];
+					int yr = (refbuf == NULL ? 0 : refbuf[x+refoffs]);
+					if(yb != yr)
+					{
+						first_mismatch = mismatch_offs;
+						printf("MISMATCH @ sample %d (%d) (%.6f sec)\n",
+							first_mismatch,
+							x,
+							first_mismatch/44100.0);
+						break;
+					}
+					mismatch_offs++;
+				}
+			}
+			first_mismatch = -1;
 			// VISUALISE
 			memset(screen->pixels, 0, screen->pitch*screen->h);
 			for(x = 0; x < screen->w; x++)
