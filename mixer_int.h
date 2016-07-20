@@ -117,44 +117,73 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 
 #ifdef MIXER_ANTICLICK
 #ifdef MIXER_STEREO
-	if(sackit->anticlick[0] != 0 || sackit->anticlick[1] != 0)
+	if(sackit->anticlick[0] != 0 || sackit->anticlick[1] != 0 || sackit->anticlick_plen != 0)
 	{
 		int32_t rampmul0 = sackit->anticlick[0];
 		int32_t rampmul1 = sackit->anticlick[1];
 		int32_t rampspd0 = rampmul0;
 		int32_t rampspd1 = rampmul1;
-		if(rampspd0 < 0) {
-			rampspd0 = -rampspd0;
-			rampspd0 /= ramplen;
-			rampspd0 = -rampspd0;
+		if(sackit->anticlick_plen == 0)
+		{
+			if(rampspd0 < 0)
+			{
+				rampspd0 = -rampspd0;
+				rampspd0 /= ramplen;
+				rampspd0 = -rampspd0;
+			} else {
+				rampspd0 /= ramplen;
+			}
+			if(rampspd1 < 0)
+			{
+				rampspd1 = -rampspd1;
+				rampspd1 /= ramplen;
+				rampspd1 = -rampspd1;
+			} else {
+				rampspd1 /= ramplen;
+			}
+
+			sackit->anticlick_plen = ramplen;
+			sackit->anticlick[0] = 0;
+			sackit->anticlick[1] = 0;
+			sackit->anticlick_pspd[0] = rampspd0;
+			sackit->anticlick_pspd[1] = rampspd1;
 		} else {
-			rampspd0 /= ramplen;
+			rampmul0 = sackit->anticlick_pval[0];
+			rampmul1 = sackit->anticlick_pval[1];
+			rampspd0 = sackit->anticlick_pspd[0];
+			rampspd1 = sackit->anticlick_pspd[1];
 		}
-		if(rampspd1 < 0) {
-			rampspd1 = -rampspd1;
-			rampspd1 /= ramplen;
-			rampspd1 = -rampspd1;
-		} else {
-			rampspd1 /= ramplen;
-		}
-		sackit->anticlick[0] = 0;
-		sackit->anticlick[1] = 0;
 #else
-	if(sackit->anticlick[0] != 0)
+	if(sackit->anticlick[0] != 0 || sackit->anticlick_plen != 0)
 	{
 		int32_t rampmul = sackit->anticlick[0];
 		int32_t rampspd = rampmul;
-		if(rampspd < 0) {
-			rampspd = -rampspd;
-			rampspd /= ramplen;
-			rampspd = -rampspd;
+		if(sackit->anticlick_plen == 0)
+		{
+			if(rampspd < 0)
+			{
+				rampspd = -rampspd;
+				rampspd /= ramplen;
+				rampspd = -rampspd;
+			} else {
+				rampspd /= ramplen;
+			}
+
+			sackit->anticlick_plen = ramplen;
+			sackit->anticlick[0] = 0;
+			sackit->anticlick_pspd[0] = rampspd;
 		} else {
-			rampspd /= ramplen;
+			rampmul = sackit->anticlick_pval[0];
+			rampspd = sackit->anticlick_pspd[0];
 		}
-		sackit->anticlick[0] = 0;
+		//printf("%9d: %08X %08X %8d %7d %d\n", rampmul, rampmul, rampspd, rampspd, ramplen, abs(rampmul)%ramplen);
 #endif
 
-		for(j = 0; j < ramplen; j++)
+		int subrlen = sackit->anticlick_plen;
+		if(subrlen > len)
+			subrlen = len;
+
+		for(j = 0; j < subrlen; j++)
 		{
 #ifdef MIXER_STEREO
 			rampmul0 -= rampspd0;
@@ -165,10 +194,18 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			//mixbuf[j*2+1] -= ((((int32_t)rampmul1)*(int32_t)(ramplen-j-1))/ramplen)<<16;
 #else
 			rampmul -= rampspd;
-			mixbuf[j] += (int32_t)rampmul;
+			mixbuf[j] += ((int32_t)rampmul);
 			//mixbuf[j] -= ((((int32_t)rampmul)*(int32_t)(ramplen-j-1))/ramplen)<<16;
 #endif
 		}
+		sackit->anticlick_plen -= subrlen;
+
+#ifdef MIXER_STEREO
+		sackit->anticlick_pval[0] = rampmul0;
+		sackit->anticlick_pval[1] = rampmul1;
+#else
+		sackit->anticlick_pval[0] = rampmul;
+#endif
 	}
 #endif
 
@@ -352,7 +389,7 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			int32_t rampspd = achn->lramp_spd;
 
 			for(j = 0; j < len; j++) {
-#ifdef MIXER_INTERP_LINEAR
+#ifndef MIXER_INTERP_LINEAR
 				// get sample value
 				int32_t v0 = zdata[zoffs];
 				int32_t v1 = ((zoffs+1) == zlength
@@ -393,15 +430,16 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 
 				// mix
 #ifdef MIXER_STEREO
-				mixbuf[j*2] -= v*vl>>8;
-				mixbuf[j*2+1] -= v*vr>>8;
+				// TODO: full separate left/right volumes
+				mixbuf[j*2] -= (v>>8)*vl;
+				mixbuf[j*2+1] -= (v>>8)*vr;
 #else
 				mixbuf[j] -= v;
 #endif
 #ifdef MIXER_ANTICLICK
 #ifdef MIXER_STEREO
-				achn->anticlick[0] = -v*vl>>8;
-				achn->anticlick[1] = -v*vr>>8;
+				achn->anticlick[0] = (v>>8)*vl;
+				achn->anticlick[1] = (v>>8)*vr;
 #else
 				achn->anticlick[0] = v;
 #endif

@@ -537,6 +537,11 @@ void sackit_playback_reset2(sackit_playback_t *sackit, int buf_len, int achn_cou
 	sackit->anticlick[1] = 0;
 	sackit->anticlick_f[0] = 0.0f;
 	sackit->anticlick_f[1] = 0.0f;
+	sackit->anticlick_pval[0] = 0;
+	sackit->anticlick_pval[1] = 0;
+	sackit->anticlick_pspd[0] = 0;
+	sackit->anticlick_pspd[1] = 0;
+	sackit->anticlick_plen = 0;
 	
 	sackit->tempo = sackit->module->header.it;
 	

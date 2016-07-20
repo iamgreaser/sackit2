@@ -343,6 +343,9 @@ struct sackit_playback
 	uint8_t gv,mv;
 	int32_t anticlick[2];
 	float anticlick_f[2];
+	int32_t anticlick_pval[2];
+	int32_t anticlick_pspd[2];
+	int32_t anticlick_plen;
 	
 	uint16_t achn_count;
 	sackit_pchannel_t pchn[64];
