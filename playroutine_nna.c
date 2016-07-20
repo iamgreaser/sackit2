@@ -10,8 +10,9 @@ void sackit_nna_note_cut(sackit_playback_t *sackit, sackit_achannel_t *achn)
 		|SACKIT_ACHN_PLAYING
 		|SACKIT_ACHN_SUSTAIN);
 	
-	sackit->anticlick[0] += achn->anticlick[0];
-	sackit->anticlick[1] += achn->anticlick[1];
+	// TODO: fix fpu mixer
+	sackit->anticlick[0] -= achn->anticlick[0];
+	sackit->anticlick[1] -= achn->anticlick[1];
 	sackit->anticlick_f[0] += achn->anticlick_f[0];
 	sackit->anticlick_f[1] += achn->anticlick_f[1];
 	achn->anticlick[0] = 0;

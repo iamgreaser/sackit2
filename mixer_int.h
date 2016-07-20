@@ -30,7 +30,7 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 	000019A5  33D2              xor dx,dx
 	000019A7  F7F3              div bx // f/400
 	000019A9  40                inc ax // (f/400)+1
-	000019AA  2EA36014          mov [cs:0x1460],ax
+	000019AA  2EA36014          mov [cs:0x1460],ax // ramp length
 	000019AE  C1E003            shl ax,byte 0x3
 	000019B1  2EA36414          mov [cs:0x1464],ax
 
@@ -46,6 +46,68 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 	int32_t gvol = sackit->gv; // 7
 	int32_t mvol = sackit->mv; // 7
 
+	/* 2.12 - notes for anticlick
+	0000180A  51                push cx
+	0000180B  2E8E06270C        mov es,[cs:0xc27]
+	00001810  2E8B0E230C        mov cx,[cs:0xc23]
+	00001815  03C9              add cx,cx
+	00001817  33FF              xor di,di
+	00001819  6633C0            xor eax,eax
+	0000181C  F366AB            rep stosd // fill mix(?) buffer with 0s
+	0000181F  59                pop cx
+
+	00001820  6660              pushad
+	00001822  BB0403            mov bx,0x304 // last-output buffer
+	00001825  6633D2            xor edx,edx
+	00001828  6633FF            xor edi,edi
+
+	loop{
+	0000182B  F7040003          test word [si],0x300
+	0000182F  741A              jz 0x184b
+	if(new_note || note_cut) {
+	00001831  662E2B17          sub edx,[cs:bx]
+	00001835  662E2B7F04        sub edi,[cs:bx+0x4]
+	0000183A  662EC70700000000   mov dword [cs:bx],0x0
+	00001842  662EC7470400000000 mov dword [cs:bx+0x4],0x0
+	}
+	0000184B  81C68000          add si,0x80
+	0000184F  83C308            add bx,byte +0x8
+	00001852  49                dec cx
+	00001853  75D6              jnz 0x182b
+	}
+
+	EDX = leftramp
+	EDI = rghtramp
+
+	00001855  668BDA            mov ebx,edx
+	00001858  668BC2            mov eax,edx
+	0000185B  6699              cdq
+	0000185D  662EF73E6014      idiv dword [cs:0x1460] // ramp length
+	00001863  668BC8            mov ecx,eax
+
+	00001866  668BC7            mov eax,edi
+	00001869  6699              cdq
+	0000186B  662EF73E6014      idiv dword [cs:0x1460] // ramp length
+
+	EBX = leftramp
+	EDI = rghtramp
+	ECX = leftramp/ramplen
+	EAX = rghtramp/ramplen
+
+	00001871  33F6              xor si,si
+	00001873  2E8B166014        mov dx,[cs:0x1460]
+	loop{
+	00001878  662BD9            sub ebx,ecx // dec first
+	0000187B  662BF8            sub edi,eax
+	0000187E  6626891C          mov [es:si],ebx // THEN store
+	00001882  6626897C04        mov [es:si+0x4],edi
+	00001887  83C608            add si,byte +0x8
+	0000188A  4A                dec dx
+	0000188B  75EB              jnz 0x1878
+	}
+	0000188D  6661              popad
+	*/
+
 #ifdef MIXER_STEREO
 	for(j = 0; j < len*2; j++)
 #else
@@ -57,24 +119,54 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 #ifdef MIXER_STEREO
 	if(sackit->anticlick[0] != 0 || sackit->anticlick[1] != 0)
 	{
-		int32_t rampmul0 = sackit->anticlick[0]>>16;
-		int32_t rampmul1 = sackit->anticlick[1]>>16;
+		int32_t rampmul0 = sackit->anticlick[0];
+		int32_t rampmul1 = sackit->anticlick[1];
+		int32_t rampspd0 = rampmul0;
+		int32_t rampspd1 = rampmul1;
+		if(rampspd0 < 0) {
+			rampspd0 = -rampspd0;
+			rampspd0 /= ramplen;
+			rampspd0 = -rampspd0;
+		} else {
+			rampspd0 /= ramplen;
+		}
+		if(rampspd1 < 0) {
+			rampspd1 = -rampspd1;
+			rampspd1 /= ramplen;
+			rampspd1 = -rampspd1;
+		} else {
+			rampspd1 /= ramplen;
+		}
 		sackit->anticlick[0] = 0;
 		sackit->anticlick[1] = 0;
 #else
 	if(sackit->anticlick[0] != 0)
 	{
-		int32_t rampmul = sackit->anticlick[0]>>16;
+		int32_t rampmul = sackit->anticlick[0];
+		int32_t rampspd = rampmul;
+		if(rampspd < 0) {
+			rampspd = -rampspd;
+			rampspd /= ramplen;
+			rampspd = -rampspd;
+		} else {
+			rampspd /= ramplen;
+		}
 		sackit->anticlick[0] = 0;
 #endif
 
 		for(j = 0; j < ramplen; j++)
 		{
 #ifdef MIXER_STEREO
-			mixbuf[j*2] -= ((((int32_t)rampmul0)*(int32_t)(ramplen-j-1))/ramplen)<<16;
-			mixbuf[j*2+1] -= ((((int32_t)rampmul1)*(int32_t)(ramplen-j-1))/ramplen)<<16;
+			rampmul0 -= rampspd0;
+			rampmul1 -= rampspd1;
+			mixbuf[j*2+0] += (int32_t)rampmul0;
+			mixbuf[j*2+1] += (int32_t)rampmul1;
+			//mixbuf[j*2] -= ((((int32_t)rampmul0)*(int32_t)(ramplen-j-1))/ramplen)<<16;
+			//mixbuf[j*2+1] -= ((((int32_t)rampmul1)*(int32_t)(ramplen-j-1))/ramplen)<<16;
 #else
-			mixbuf[j] -= ((((int32_t)rampmul)*(int32_t)(ramplen-j-1))/ramplen)<<16;
+			rampmul -= rampspd;
+			mixbuf[j] += (int32_t)rampmul;
+			//mixbuf[j] -= ((((int32_t)rampmul)*(int32_t)(ramplen-j-1))/ramplen)<<16;
 #endif
 		}
 	}
@@ -308,8 +400,8 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 #endif
 #ifdef MIXER_ANTICLICK
 #ifdef MIXER_STEREO
-				achn->anticlick[0] = v*vl>>8;
-				achn->anticlick[1] = v*vr>>8;
+				achn->anticlick[0] = -v*vl>>8;
+				achn->anticlick[1] = -v*vr>>8;
 #else
 				achn->anticlick[0] = v;
 #endif
