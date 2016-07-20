@@ -389,7 +389,7 @@ void MIXER_NAME(sackit_playback_t *sackit, int offs, int len)
 			int32_t rampspd = achn->lramp_spd;
 
 			for(j = 0; j < len; j++) {
-#ifndef MIXER_INTERP_LINEAR
+#ifdef MIXER_INTERP_LINEAR
 				// get sample value
 				int32_t v0 = zdata[zoffs];
 				int32_t v1 = ((zoffs+1) == zlength
